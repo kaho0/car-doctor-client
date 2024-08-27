@@ -1,10 +1,12 @@
-import React from "react";
+import { useContext } from "react";
 import { useLoaderData } from "react-router-dom";
-import Swal from "sweetalert2"; // Import SweetAlert
+import Swal from "sweetalert2";
+import { AuthContext } from "../Providers/AuthProvider";
 
 const BookService = () => {
   const service = useLoaderData();
   const { title, _id, price, img } = service;
+  const { user } = useContext(AuthContext);
 
   const handleCheckout = async (e) => {
     e.preventDefault();
@@ -31,44 +33,47 @@ const BookService = () => {
     };
 
     try {
-      // Check if the booking already exists
-      const response = await fetch(
+      // Check for duplicate booking first
+      const existingBookingResponse = await fetch(
         `http://localhost:5000/bookings?serviceId=${_id}&email=${email}`
       );
-      const existingBookings = await response.json();
+
+      const existingBookings = await existingBookingResponse.json();
 
       if (existingBookings.length > 0) {
-        // Show SweetAlert if a duplicate booking is found
         Swal.fire({
           icon: "warning",
-          title: "Duplicate Booking",
-          text: "You have already booked this service!",
+          title: "Booking Already Exists",
+          text: "You have already booked this service.",
         });
         return; // Stop further execution
       }
 
-      // If no duplicate, proceed with the booking
-      const result = await fetch("http://localhost:5000/bookings", {
+      // Proceed with creating a new booking
+      const response = await fetch("http://localhost:5000/bookings", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(booking),
       });
 
-      if (result.ok) {
+      const result = await response.json();
+
+      if (response.ok) {
         Swal.fire({
           icon: "success",
           title: "Booking Confirmed",
-          text: "Your booking has been confirmed!",
+          text: "Your booking has been successfully confirmed.",
         });
+        form.reset(); // Clear the form after successful submission
       } else {
-        throw new Error("Failed to book the service");
+        throw new Error(result.message || "Failed to book the service");
       }
     } catch (error) {
-      console.error("Error during booking:", error);
+      console.log(error);
       Swal.fire({
         icon: "error",
-        title: "Booking Failed",
-        text: "There was an error with your booking. Please try again.",
+        title: "Error",
+        text: error.message || "Something went wrong, please try again.",
       });
     }
   };
@@ -129,9 +134,11 @@ const BookService = () => {
               <input
                 type="email"
                 name="email"
+                defaultValue={user?.email || ""}
                 placeholder="Your Email"
                 className="input input-bordered"
                 required
+                readOnly={user}
               />
             </div>
           </div>
